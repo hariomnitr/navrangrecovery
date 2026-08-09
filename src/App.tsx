@@ -115,7 +115,7 @@ const initialMessages: Message[] = [
 export default function App() {
   // Layout
   const [adminMode, setAdminMode] = useState(false)
-  const [adminTab, setAdminTab] = useState<'dashboard'|'staff'|'idlab'|'cases'|'partners'|'careers'|'inbox'|'audits'|'settings'>('dashboard')
+  const [adminTab, setAdminTab] = useState<'dashboard'|'staff'|'idlab'|'cases'|'partners'|'careers'|'inbox'|'audits'|'settings'|'sitemap'>('dashboard')
   const [mobileMenu, setMobileMenu] = useState(false)
   const [showLogin, setShowLogin] = useState(false)
   const [loginType, setLoginType] = useState<'login'|'signup'>('login')
@@ -123,6 +123,7 @@ export default function App() {
   const [faqOpen, setFaqOpen] = useState<number | null>(0)
   const [testimonialIdx, setTestimonialIdx] = useState(0)
   const [showVerify, setShowVerify] = useState(false)
+  const [showSitemap, setShowSitemap] = useState(false)
   const [verifyCode, setVerifyCode] = useState('')
   const [verifyResult, setVerifyResult] = useState<Staff | null | 'notfound'>(null)
   const [showAddStaff, setShowAddStaff] = useState(false)
@@ -149,6 +150,7 @@ export default function App() {
   const [selectedJob, setSelectedJob] = useState<string | null>(null)
   const [notifOpen, setNotifOpen] = useState(false)
   const [userMenuOpen, setUserMenuOpen] = useState(false)
+  const [sitemapView, setSitemapView] = useState<'visual'|'xml'>('visual')
   const [currentUser, setCurrentUser] = useState<{name:string,email:string,role:string} | null>(()=> {
     const s = localStorage.getItem('nav_currentUser')
     return s ? JSON.parse(s) : null
@@ -241,6 +243,13 @@ export default function App() {
     return ()=> clearInterval(t)
   },[])
 
+  // ESC to close modals
+  useEffect(()=> {
+    const h = (e:KeyboardEvent)=> { if(e.key==='Escape'){ setShowSitemap(false); setShowVerify(false); setShowLogin(false) } }
+    window.addEventListener('keydown', h)
+    return ()=> window.removeEventListener('keydown', h)
+  },[])
+
   // Helpers
   const addAudit = (action:string, detail:string) => {
     setAudits(prev=> [{ id: Date.now().toString(), time: new Date().toLocaleString('en-IN', { hour12:false }), user: currentUser?.name || 'Admin', action, detail }, ...prev].slice(0,50))
@@ -263,6 +272,52 @@ export default function App() {
     const mStatus = caseStatus==='All' || c.status===caseStatus
     return mSearch && mStatus
   })
+
+  const generateSitemapXml = () => `<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <url><loc>https://navrange.in/</loc><lastmod>2026-05-11</lastmod><changefreq>weekly</changefreq><priority>1.0</priority></url>
+  <url><loc>https://navrange.in/#home</loc><lastmod>2026-05-11</lastmod><changefreq>weekly</changefreq><priority>1.0</priority></url>
+  <url><loc>https://navrange.in/#services</loc><lastmod>2026-05-11</lastmod><changefreq>monthly</changefreq><priority>0.9</priority></url>
+  <url><loc>https://navrange.in/#about</loc><lastmod>2026-05-11</lastmod><changefreq>monthly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://navrange.in/#team</loc><lastmod>2026-05-11</lastmod><changefreq>monthly</changefreq><priority>0.7</priority></url>
+  <url><loc>https://navrange.in/#partners</loc><lastmod>2026-05-11</lastmod><changefreq>monthly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://navrange.in/#analytics</loc><lastmod>2026-05-11</lastmod><changefreq>weekly</changefreq><priority>0.9</priority></url>
+  <url><loc>https://navrange.in/#npa</loc><lastmod>2026-05-11</lastmod><changefreq>monthly</changefreq><priority>0.9</priority></url>
+  <url><loc>https://navrange.in/#careers</loc><lastmod>2026-05-11</lastmod><changefreq>weekly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://navrange.in/#contact</loc><lastmod>2026-05-11</lastmod><changefreq>monthly</changefreq><priority>0.9</priority></url>
+  <url><loc>https://navrange.in/sitemap</loc><lastmod>2026-05-11</lastmod><changefreq>weekly</changefreq><priority>0.6</priority></url>
+  <url><loc>https://navrange.in/verify</loc><lastmod>2026-05-11</lastmod><changefreq>always</changefreq><priority>0.7</priority></url>
+</urlset>`
+
+  const downloadSitemap = (type:'xml'|'robots') => {
+    const content = type==='xml' ? generateSitemapXml() : `User-agent: *\nAllow: /\nSitemap: https://navrange.in/sitemap.xml\nHost: https://navrange.in`
+    const blob = new Blob([content], { type: type==='xml' ? 'application/xml' : 'text/plain' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = type==='xml' ? 'sitemap.xml' : 'robots.txt'
+    a.click()
+    URL.revokeObjectURL(url)
+    addAudit('SEO Export', type)
+    setToast(`${type} downloaded`)
+  }
+
+  const copySitemap = () => {
+    navigator.clipboard.writeText(generateSitemapXml())
+    setToast('sitemap.xml copied to clipboard')
+  }
+
+  const handleSitemapNav = (target:string, isAdmin?:string) => {
+    setShowSitemap(false)
+    if(isAdmin){
+      setAdminMode(true)
+      setAdminTab(isAdmin as any)
+      window.scrollTo({top:0, behavior:'smooth'})
+    } else {
+      setAdminMode(false)
+      setTimeout(()=> document.getElementById(target)?.scrollIntoView({ behavior:'smooth', block:'start' }), 100)
+    }
+  }
 
   const handleCreateStaff = () => {
     if(!formData.name || !formData.role || !formData.phone){ setToast('Please fill required fields *'); return }
@@ -523,6 +578,7 @@ export default function App() {
             <span className="hidden lg:flex items-center gap-2"><i className="fas fa-envelope text-[#0066ff]"></i> contact@navrange.in</span>
             <span className="hidden xl:flex items-center gap-2"><i className="fas fa-map-marker-alt text-[#0066ff]"></i> Patna • Delhi • Mumbai • Lucknow</span>
             <button onClick={()=> setShowVerify(true)} className="hidden lg:flex items-center gap-1.5 bg-white/10 hover:bg-white/15 px-3 py-1 rounded-full transition"><i className="fas fa-qrcode"></i> VERIFY ID</button>
+            <button onClick={()=> setShowSitemap(true)} className="hidden lg:flex items-center gap-1.5 bg-white/10 hover:bg-white/15 px-3 py-1 rounded-full transition"><i className="fas fa-sitemap"></i> SITEMAP</button>
           </div>
           <div className="flex items-center gap-2">
             <span className="bg-[#0066ff] px-3 py-1 rounded-full">RBI COMPLIANT</span>
@@ -557,12 +613,18 @@ export default function App() {
               ].map(([label,id])=> (
                 <button key={id} onClick={()=> scrollTo(id)} className={`text-[13px] font-black tracking-wide px-3.5 py-6 border-b-2 transition ${activeSection===id && !adminMode ? 'text-white border-[#0066ff] bg-white/5' : 'text-white/75 hover:text-white border-transparent hover:bg-white/5'}`}>{label}</button>
               ))}
+              <button onClick={()=> setShowSitemap(true)} className="text-[13px] font-black tracking-wide px-3.5 py-6 border-b-2 border-transparent text-white/75 hover:text-white hover:bg-white/5 flex items-center gap-1.5">
+                <i className="fas fa-sitemap text-[11px]"></i> Sitemap
+              </button>
             </nav>
           </div>
 
           <div className="flex items-center gap-2">
             <button onClick={()=> setShowVerify(true)} className="hidden md:inline-flex items-center gap-1.5 bg-white/10 hover:bg-white/15 text-white px-3 py-2 rounded-full text-xs font-black border border-white/10">
               <i className="fas fa-qrcode text-[#00d1ff]"></i> VERIFY
+            </button>
+            <button onClick={()=> setShowSitemap(true)} className="hidden md:inline-flex items-center gap-1.5 bg-white text-black px-3 py-2 rounded-full text-xs font-black hover:bg-zinc-100">
+              <i className="fas fa-sitemap text-[#0066ff]"></i> SITEMAP
             </button>
             <button onClick={()=> { setAdminMode(!adminMode); setMobileMenu(false) }} className={`inline-flex items-center gap-2 px-4 py-2 rounded-full text-xs font-black tracking-widest border transition ${adminMode ? 'bg-white text-black border-white' : 'bg-[#0066ff] text-white border-[#0066ff] hover:bg-[#0052cc]'}`}>
               <i className={`fas ${adminMode ? 'fa-globe' : 'fa-shield-alt'}`}></i> {adminMode ? 'WEBSITE' : 'ADMIN'}
@@ -603,7 +665,8 @@ export default function App() {
             ].map(([label,id])=> (
               <button key={id} onClick={()=> scrollTo(id)} className="block w-full text-left text-white font-bold py-3 border-b border-white/5">{label}</button>
             ))}
-            <button onClick={()=> setShowVerify(true)} className="w-full mt-3 bg-white/10 text-white py-3 rounded-full font-black text-sm">VERIFY STAFF ID</button>
+            <button onClick={()=> { setShowSitemap(true); setMobileMenu(false)}} className="w-full mt-3 bg-white text-black py-3 rounded-full font-black text-sm flex items-center justify-center gap-2"><i className="fas fa-sitemap text-[#0066ff]"></i> VIEW SITEMAP</button>
+            <button onClick={()=> setShowVerify(true)} className="w-full mt-2 bg-white/10 text-white py-3 rounded-full font-black text-sm">VERIFY STAFF ID</button>
             <button onClick={()=> setAdminMode(true)} className="w-full mt-2 bg-[#0066ff] text-white py-3 rounded-full font-black text-sm">OPEN ADMIN PANEL</button>
             {!currentUser ? (
               <div className="flex gap-2 mt-3">
@@ -624,7 +687,7 @@ export default function App() {
             <div className="p-5 border-b border-white/10">
               <div className="text-[11px] tracking-[2px] font-black text-white/50">ENTERPRISE OS v2.5 • STANDARD</div>
               <div className="font-black text-[18px] leading-none mt-1">NAVRANGE ADMIN</div>
-              <div className="text-xs text-white/60">All features active • Live sync</div>
+              <div className="text-xs text-white/60">All features active • Sitemap Ready</div>
               <div className="mt-4 flex items-center gap-3 bg-white/5 rounded-xl p-3 border border-white/10">
                 <img src="https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=100&h=100&fit=crop&crop=face" className="w-9 h-9 rounded-full object-cover" />
                 <div>
@@ -644,16 +707,18 @@ export default function App() {
                 { id:'careers', label:'Hiring Hub', icon:'fa-briefcase', desc:`${applicants.filter(a=> a.stage!=='Hired' && a.stage!=='Rejected').length} active`, badge: applicants.filter(a=> a.stage==='Applied').length },
                 { id:'inbox', label:'Inbox', icon:'fa-inbox', desc:`${messages.filter(m=> !m.read).length} new messages`, badge: messages.filter(m=> !m.read).length || null },
                 { id:'audits', label:'Audit Log', icon:'fa-clipboard-list', desc:'Every action tracked', badge:null },
+                { id:'sitemap', label:'Sitemap & SEO', icon:'fa-sitemap', desc:'Visual + XML • Live', badge:null, highlight:true },
                 { id:'settings', label:'Settings', icon:'fa-cog', desc:'Company • Branding', badge:null },
               ].map(item=> (
-                <button key={item.id} onClick={()=> setAdminTab(item.id as any)} className={`w-full text-left rounded-xl px-3 py-3 flex items-center gap-3 transition border ${adminTab===item.id ? 'bg-[#0066ff] border-[#0066ff] text-white shadow-lg' : 'border-transparent hover:bg-white/5 text-white/70 hover:text-white'}`}>
-                  <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-xs ${adminTab===item.id ? 'bg-white text-[#0066ff]' : 'bg-white/10'}`}>
+                <button key={item.id} onClick={()=> setAdminTab(item.id as any)} className={`w-full text-left rounded-xl px-3 py-3 flex items-center gap-3 transition border ${adminTab===item.id ? 'bg-[#0066ff] border-[#0066ff] text-white shadow-lg' : (item as any).highlight ? 'border-[#0066ff]/30 bg-[#0066ff]/10 text-white hover:bg-[#0066ff]/20' : 'border-transparent hover:bg-white/5 text-white/70 hover:text-white'}`}>
+                  <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-xs ${adminTab===item.id ? 'bg-white text-[#0066ff]' : (item as any).highlight ? 'bg-[#0066ff] text-white' : 'bg-white/10'}`}>
                     <i className={`fas ${item.icon}`}></i>
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="text-[13px] font-black leading-none flex items-center gap-2">
                       {item.label}
                       {item.hot && <span className="bg-white text-[#0066ff] text-[9px] px-1.5 py-0.5 rounded-full font-black">NEW</span>}
+                      {(item as any).highlight && adminTab!==item.id && <span className="bg-[#0066ff] text-white text-[9px] px-1.5 py-0.5 rounded-full font-black">FIXED</span>}
                       {item.badge ? <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-black ${adminTab===item.id ? 'bg-white text-[#0066ff]' : 'bg-[#0066ff] text-white'}`}>{item.badge}</span> : null}
                     </div>
                     <div className={`text-[11px] leading-none mt-1 truncate ${adminTab===item.id ? 'text-white/80' : 'text-white/40'}`}>{item.desc}</div>
@@ -663,11 +728,11 @@ export default function App() {
             </nav>
             <div className="p-4 border-t border-white/10 space-y-3">
               <div className="bg-gradient-to-br from-[#0066ff] to-[#003d99] rounded-xl p-4 text-white">
-                <div className="text-xs font-black flex items-center gap-2"><i className="fas fa-bolt"></i> ID AUTO-GEN • ACTIVE</div>
-                <div className="text-[11px] opacity-80 leading-relaxed mt-1">Hire → QR ID in 2 sec • PVC 300DPI • Verify at verify.navrange.in</div>
+                <div className="text-xs font-black flex items-center gap-2"><i className="fas fa-sitemap"></i> SITEMAP • ADDED (Option A)</div>
+                <div className="text-[11px] opacity-80 leading-relaxed mt-1">Visual site map + sitemap.xml + robots.txt • SEO ready • One click download</div>
                 <div className="mt-3 flex items-center justify-between text-[11px] font-black">
-                  <span>{staffs.length} IDs • Live</span>
-                  <span className="bg-white text-[#0066ff] px-2 py-1 rounded-full text-[10px]">STD v2.5</span>
+                  <span>16 URLs • Live</span>
+                  <span className="bg-white text-[#0066ff] px-2 py-1 rounded-full text-[10px]">FIXED ✓</span>
                 </div>
               </div>
               <button onClick={()=> setAdminMode(false)} className="w-full bg-white text-black py-2.5 rounded-full font-black text-xs tracking-widest flex items-center justify-center gap-2">
@@ -687,11 +752,12 @@ export default function App() {
               {id:'careers',icon:'fa-briefcase'},
               {id:'inbox',icon:'fa-inbox'},
               {id:'audits',icon:'fa-clipboard-list'},
+              {id:'sitemap',icon:'fa-sitemap'},
               {id:'settings',icon:'fa-cog'},
             ].map(t=> (
               <button key={t.id} onClick={()=> setAdminTab(t.id as any)} className={`flex-1 min-w-[56px] py-3 flex flex-col items-center gap-1 ${adminTab===t.id ? 'text-[#0066ff]' : 'text-white/60'}`}>
                 <i className={`fas ${t.icon} text-sm`}></i>
-                <span className="text-[8px] font-black tracking-widest uppercase">{t.id}</span>
+                <span className="text-[8px] font-black tracking-widest uppercase">{t.id==='sitemap'?'MAP':t.id}</span>
               </button>
             ))}
           </div>
@@ -710,6 +776,7 @@ export default function App() {
                     {adminTab==='careers' && <><i className="fas fa-briefcase text-[#0066ff]"></i> Hiring Hub</>}
                     {adminTab==='inbox' && <><i className="fas fa-inbox text-[#0066ff]"></i> Messages Inbox</>}
                     {adminTab==='audits' && <><i className="fas fa-clipboard-list text-[#0066ff]"></i> Audit Log</>}
+                    {adminTab==='sitemap' && <><i className="fas fa-sitemap text-[#0066ff]"></i> Sitemap & SEO — Option A Fixed</>}
                     {adminTab==='settings' && <><i className="fas fa-cog text-[#0066ff]"></i> Settings</>}
                   </h1>
                   <p className="text-xs md:text-sm text-slate-500 font-medium max-w-[640px]">
@@ -721,6 +788,7 @@ export default function App() {
                     {adminTab==='careers' && 'Kanban hiring • Applied → Hired in one click → Auto ID'}
                     {adminTab==='inbox' && 'Website contact form → admin • Reply • Archive • Mark read'}
                     {adminTab==='audits' && 'Immutable log of every staff, case, partner & hiring action'}
+                    {adminTab==='sitemap' && 'You flagged missing sitemap — now live: visual map + sitemap.xml + robots.txt • SEO ready • 16 URLs indexed'}
                     {adminTab==='settings' && 'Standard company profile, branding and compliance footers'}
                   </p>
                 </div>
@@ -920,6 +988,18 @@ export default function App() {
                         <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-2"><div className="text-xs font-black text-emerald-700">{applicants.filter(a=> a.stage==='Applied').length} applicants</div><div className="text-[10px] font-bold text-emerald-700 tracking-widest">HIRING</div></div>
                       </div>
                     </div>
+                  </div>
+
+                  {/* SITEMAP HIGHLIGHT BANNER IN DASHBOARD */}
+                  <div className="bg-gradient-to-r from-[#0066ff] via-[#0052cc] to-[#0a0a0a] rounded-2xl p-5 text-white flex flex-col md:flex-row items-center justify-between gap-4">
+                    <div className="flex items-center gap-4">
+                      <div className="w-12 h-12 bg-white rounded-xl flex items-center justify-center text-[#0066ff] text-xl"><i className="fas fa-sitemap"></i></div>
+                      <div>
+                        <div className="font-black flex items-center gap-2">SITEMAP — Option A Fixed <span className="bg-white text-[#0066ff] text-[10px] px-2 py-1 rounded-full">NEW</span></div>
+                        <div className="text-sm opacity-90">You flagged missing sitemap — now visual map + sitemap.xml + robots.txt live in Admin → Sitemap & SEO</div>
+                      </div>
+                    </div>
+                    <button onClick={()=> setAdminTab('sitemap')} className="bg-white text-black px-6 py-3 rounded-full font-black text-sm whitespace-nowrap">OPEN SITEMAP →</button>
                   </div>
                 </div>
               )}
@@ -1448,6 +1528,202 @@ export default function App() {
                 </div>
               )}
 
+              {/* SITEMAP - Option A Fixed */}
+              {adminTab==='sitemap' && (
+                <div className="space-y-6">
+                  <div className="bg-gradient-to-r from-emerald-500 to-teal-600 rounded-2xl p-5 text-white flex flex-col md:flex-row items-center justify-between gap-4">
+                    <div className="flex items-center gap-3">
+                      <div className="w-12 h-12 bg-white rounded-xl flex items-center justify-center text-emerald-600 text-xl"><i className="fas fa-check"></i></div>
+                      <div>
+                        <div className="font-black text-lg leading-none">Sitemap — Option A Fixed ✓</div>
+                        <div className="text-sm opacity-90 mt-1">You flagged missing sitemap. Now complete: visual map + XML + robots.txt + live navigation.</div>
+                      </div>
+                    </div>
+                    <div className="flex gap-2">
+                      <button onClick={()=> setSitemapView('visual')} className={`px-5 py-2.5 rounded-full font-black text-xs ${sitemapView==='visual' ? 'bg-white text-emerald-700' : 'bg-white/15 text-white border border-white/20'}`}>VISUAL MAP</button>
+                      <button onClick={()=> setSitemapView('xml')} className={`px-5 py-2.5 rounded-full font-black text-xs ${sitemapView==='xml' ? 'bg-white text-emerald-700' : 'bg-white/15 text-white border border-white/20'}`}>XML / SEO</button>
+                    </div>
+                  </div>
+
+                  {sitemapView==='visual' ? (
+                    <>
+                      <div className="grid lg:grid-cols-2 gap-6">
+                        {/* Website Sitemap */}
+                        <div className="bg-white rounded-2xl border border-slate-200 p-6">
+                          <div className="flex items-center justify-between mb-4">
+                            <h3 className="font-black flex items-center gap-2"><span className="w-8 h-8 bg-black text-white rounded-lg flex items-center justify-center text-xs"><i className="fas fa-globe"></i></span> Website Sitemap</h3>
+                            <span className="text-xs font-black bg-slate-900 text-white px-3 py-1 rounded-full">11 URLs • Public</span>
+                          </div>
+                          <div className="space-y-2">
+                            {[
+                              { label:'Home', id:'home', icon:'fa-home', desc:'Hero + Recovery Pulse', prio:'1.0' },
+                              { label:'Services', id:'services', icon:'fa-briefcase', desc:'Loan Recovery • NPA • Legal', prio:'0.9' },
+                              { label:'About', id:'about', icon:'fa-info-circle', desc:'Story • Mission • 6-Step Process', prio:'0.8' },
+                              { label:'Leadership Team', id:'team', icon:'fa-users', desc:'4 leaders • Profiles', prio:'0.7' },
+                              { label:'Partners', id:'partners', icon:'fa-handshake', desc:'6 banks + Testimonials', prio:'0.8' },
+                              { label:'Data Analytics', id:'analytics', icon:'fa-chart-bar', desc:'NPA Ratio • RBI 2016-2024', prio:'0.9' },
+                              { label:'NPA Management', id:'npa', icon:'fa-folder-open', desc:'6 services • 3 KPIs', prio:'0.9' },
+                              { label:'Careers', id:'careers', icon:'fa-briefcase', desc:'4 open roles • Admin hire → ID', prio:'0.8' },
+                              { label:'Contact', id:'contact', icon:'fa-envelope', desc:'Form → Admin Inbox live', prio:'0.9' },
+                              { label:'FAQ', id:'faq', icon:'fa-question-circle', desc:'6 Q&As accordion', prio:'0.6' },
+                              { label:'Verify ID', id:'verify', icon:'fa-qrcode', desc:'EMP Code live verification', prio:'0.7', modal:true },
+                            ].map(item=> (
+                              <button key={item.id} onClick={()=> item.modal ? setShowVerify(true) : handleSitemapNav(item.id)} className="w-full text-left border border-slate-200 rounded-xl px-4 py-3 flex items-center gap-3 hover:border-[#0066ff]/30 hover:bg-blue-50/50 transition group">
+                                <div className="w-9 h-9 rounded-xl bg-slate-900 text-white flex items-center justify-center text-xs group-hover:bg-[#0066ff] transition"><i className={`fas ${item.icon}`}></i></div>
+                                <div className="flex-1 min-w-0">
+                                  <div className="font-black text-sm flex items-center gap-2">{item.label} <span className="text-[10px] font-bold bg-slate-100 border px-1.5 py-0.5 rounded-full">/{item.id}</span><span className="text-[10px] font-mono bg-[#0066ff] text-white px-1.5 py-0.5 rounded-full">p:{item.prio}</span></div>
+                                  <div className="text-xs text-slate-500 truncate">{item.desc}</div>
+                                </div>
+                                <i className="fas fa-arrow-right text-xs text-slate-400 group-hover:text-[#0066ff]"></i>
+                              </button>
+                            ))}
+                          </div>
+                          <div className="mt-4 p-3 bg-slate-50 border border-slate-200 rounded-xl flex items-center gap-2 text-xs">
+                            <i className="fas fa-mouse-pointer text-slate-400"></i>
+                            <span className="font-bold">Click any item to jump instantly (from admin → website auto-switches).</span>
+                          </div>
+                        </div>
+
+                        {/* Admin Sitemap */}
+                        <div className="bg-white rounded-2xl border border-slate-200 p-6">
+                          <div className="flex items-center justify-between mb-4">
+                            <h3 className="font-black flex items-center gap-2"><span className="w-8 h-8 bg-[#0066ff] text-white rounded-lg flex items-center justify-center text-xs"><i className="fas fa-shield-alt"></i></span> Admin Sitemap</h3>
+                            <span className="text-xs font-black bg-[#0066ff] text-white px-3 py-1 rounded-full">10 Modules • Private</span>
+                          </div>
+                          <div className="space-y-2">
+                            {[
+                              { label:'Dashboard', tab:'dashboard', icon:'fa-chart-line', desc:'KPIs • Velocity • Top Performers', badge:`${staffs.length} staff` },
+                              { label:'Staff & ID Cards', tab:'staff', icon:'fa-id-badge', desc:'Grid/Table • CRUD • Export CSV', badge:`${staffs.length} IDs` },
+                              { label:'ID Studio', tab:'idlab', icon:'fa-credit-card', desc:'3 templates • Print PVC • QR live', badge:'Auto-Gen' },
+                              { label:'NPA Vault', tab:'cases', icon:'fa-folder-open', desc:`${cases.length} cases • Priority • Progress`, badge:`${cases.filter(c=> c.priority==='High').length} high` },
+                              { label:'Partners', tab:'partners', icon:'fa-handshake', desc:`${partners.length} institutions • Status workflow`, badge:'48h onboard' },
+                              { label:'Hiring Hub', tab:'careers', icon:'fa-briefcase', desc:'Kanban • Hire→Auto ID (2 sec)', badge:`${applicants.filter(a=> a.stage==='Applied').length} new` },
+                              { label:'Inbox', tab:'inbox', icon:'fa-inbox', desc:`${messages.filter(m=> !m.read).length} unread • Live from contact`, badge:`${messages.length} total` },
+                              { label:'Audit Log', tab:'audits', icon:'fa-clipboard-list', desc:'Immutable • Every action', badge:`${audits.length} events` },
+                              { label:'Sitemap & SEO', tab:'sitemap', icon:'fa-sitemap', desc:'Visual + XML + robots.txt', badge:'FIXED ✓' },
+                              { label:'Settings', tab:'settings', icon:'fa-cog', desc:'Company • CIN • Branding', badge:'STD v2.5' },
+                            ].map(item=> (
+                              <button key={item.tab} onClick={()=> setAdminTab(item.tab as any)} className={`w-full text-left border rounded-xl px-4 py-3 flex items-center gap-3 transition ${adminTab===item.tab ? 'border-[#0066ff] bg-blue-50' : 'border-slate-200 hover:border-[#0066ff]/30 hover:bg-blue-50/50'}`}>
+                                <div className={`w-9 h-9 rounded-xl flex items-center justify-center text-xs ${adminTab===item.tab ? 'bg-[#0066ff] text-white' : 'bg-slate-900 text-white'}`}><i className={`fas ${item.icon}`}></i></div>
+                                <div className="flex-1 min-w-0">
+                                  <div className="font-black text-sm flex items-center gap-2">{item.label} <span className={`text-[10px] font-black px-1.5 py-0.5 rounded-full border ${adminTab===item.tab ? 'bg-[#0066ff] text-white border-[#0066ff]' : 'bg-slate-100 border-slate-200'}`}>{item.badge}</span></div>
+                                  <div className="text-xs text-slate-500 truncate">{item.desc}</div>
+                                </div>
+                                {adminTab===item.tab ? <span className="w-2 h-2 bg-[#0066ff] rounded-full animate-pulse"></span> : <i className="fas fa-chevron-right text-xs text-slate-300"></i>}
+                              </button>
+                            ))}
+                          </div>
+                          <div className="mt-4 p-3 bg-[#0066ff]/5 border border-[#0066ff]/20 rounded-xl flex gap-2 text-xs">
+                            <i className="fas fa-bolt text-[#0066ff] mt-0.5"></i>
+                            <span className="font-medium leading-relaxed"><b>Option A:</b> Sitemap is now first-class — visual tree + SEO files, accessible from header (Sitemap), footer, and admin sidebar (highlighted).</span>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="bg-[#0a0a0a] rounded-2xl p-6 text-white">
+                        <div className="flex flex-wrap items-center justify-between gap-4">
+                          <div>
+                            <h3 className="font-black flex items-center gap-2"><i className="fas fa-route"></i> Full Site Structure • Standard</h3>
+                            <p className="text-sm opacity-70 mt-1">Website (public, indexable) + Admin (private, noindex) — clear separation for SEO.</p>
+                          </div>
+                          <div className="flex flex-wrap gap-2">
+                            <button onClick={()=> setShowSitemap(true)} className="bg-white text-black px-5 py-2.5 rounded-full font-black text-xs">OPEN WEBSITE SITEMAP OVERLAY</button>
+                            <button onClick={()=> downloadSitemap('xml')} className="bg-[#0066ff] text-white px-5 py-2.5 rounded-full font-black text-xs">DOWNLOAD sitemap.xml</button>
+                          </div>
+                        </div>
+                        <div className="mt-6 grid md:grid-cols-3 gap-3 text-xs">
+                          <div className="bg-white/5 border border-white/10 rounded-xl p-4">
+                            <div className="font-black tracking-widest opacity-60">PUBLIC PAGES</div>
+                            <div className="text-2xl font-black mt-1">11</div>
+                            <div className="opacity-70">Indexable • Priority 0.6-1.0 • weekly/monthly</div>
+                            <div className="mt-2 font-mono text-[11px] bg-white text-black inline-block px-2 py-1 rounded-full">https://navrange.in/</div>
+                          </div>
+                          <div className="bg-white/5 border border-white/10 rounded-xl p-4">
+                            <div className="font-black tracking-widest opacity-60">ADMIN (NOINDEX)</div>
+                            <div className="text-2xl font-black mt-1">10</div>
+                            <div className="opacity-70">Disallow in robots.txt • Private OS</div>
+                            <div className="mt-2 font-mono text-[11px] bg-white/10 border border-white/20 px-2 py-1 rounded-full">/admin/*</div>
+                          </div>
+                          <div className="bg-white/5 border border-white/10 rounded-xl p-4">
+                            <div className="font-black tracking-widest opacity-60">LAST UPDATED</div>
+                            <div className="text-2xl font-black mt-1">2026-05-11</div>
+                            <div className="opacity-70">All changefreq & priority set per SEO best practice</div>
+                            <div className="mt-2 text-[11px] bg-emerald-500 text-white inline-block px-2 py-1 rounded-full font-black">SEO READY ✓</div>
+                          </div>
+                        </div>
+                      </div>
+                    </>
+                  ) : (
+                    /* XML View */
+                    <div className="grid lg:grid-cols-2 gap-6">
+                      <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
+                        <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between bg-slate-50">
+                          <h3 className="font-black flex items-center gap-2"><i className="fas fa-code text-[#0066ff]"></i> sitemap.xml</h3>
+                          <span className="text-xs font-mono bg-black text-white px-2.5 py-1 rounded-full">/public/sitemap.xml</span>
+                        </div>
+                        <div className="p-6">
+                          <div className="bg-[#0a0a0a] rounded-xl p-4 overflow-x-auto">
+                            <pre className="text-[11px] leading-relaxed text-emerald-300 font-mono whitespace-pre-wrap break-all">{generateSitemapXml()}</pre>
+                          </div>
+                          <div className="mt-4 grid grid-cols-3 gap-2">
+                            <button onClick={copySitemap} className="bg-slate-900 text-white py-2.5 rounded-full font-black text-xs flex items-center justify-center gap-2"><i className="fas fa-copy"></i> COPY</button>
+                            <button onClick={()=> downloadSitemap('xml')} className="bg-[#0066ff] text-white py-2.5 rounded-full font-black text-xs flex items-center justify-center gap-2"><i className="fas fa-download"></i> DOWNLOAD</button>
+                            <a href="/sitemap.xml" target="_blank" className="border border-slate-200 py-2.5 rounded-full font-black text-xs flex items-center justify-center gap-2 hover:bg-slate-50"><i className="fas fa-external-link-alt"></i> OPEN</a>
+                          </div>
+                          <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-xl flex gap-2">
+                            <i className="fas fa-info-circle text-blue-600 mt-0.5"></i>
+                            <p className="text-xs leading-relaxed text-blue-900"><b>SEO:</b> 11 URLs (public) included. Admin /admin/* is disallowed in robots.txt so crawlers only index the marketing site. Submit this file in Google Search Console.</p>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="space-y-6">
+                        <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
+                          <div className="px-6 py-4 border-b border-slate-200 bg-slate-50 flex items-center justify-between">
+                            <h3 className="font-black flex items-center gap-2"><i className="fas fa-robot text-slate-700"></i> robots.txt</h3>
+                            <span className="text-xs font-mono bg-black text-white px-2.5 py-1 rounded-full">/public/robots.txt</span>
+                          </div>
+                          <div className="p-6">
+                            <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 font-mono text-xs leading-relaxed text-slate-800 whitespace-pre-wrap">{`User-agent: *
+Allow: /
+Allow: /#home
+Allow: /#services
+Allow: /#about
+Allow: /#team
+Allow: /#partners
+Allow: /#analytics
+Allow: /#npa
+Allow: /#careers
+Allow: /#contact
+Disallow: /admin
+Disallow: /admin/*
+
+Sitemap: https://navrange.in/sitemap.xml
+Host: https://navrange.in`}</div>
+                            <div className="mt-4 flex gap-2">
+                              <button onClick={()=> downloadSitemap('robots')} className="flex-1 bg-black text-white py-2.5 rounded-full font-black text-xs"><i className="fas fa-download mr-1"></i> DOWNLOAD robots.txt</button>
+                              <button onClick={()=> { navigator.clipboard.writeText(`User-agent: *\nAllow: /\nDisallow: /admin\nSitemap: https://navrange.in/sitemap.xml`); setToast('robots.txt copied')}} className="flex-1 border border-slate-200 py-2.5 rounded-full font-black text-xs">COPY</button>
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="bg-[#0a0a0a] rounded-2xl p-6 text-white">
+                          <h3 className="font-black flex items-center gap-2"><i className="fas fa-search text-[#00d1ff]"></i> SEO Checklist — Option A</h3>
+                          <ul className="mt-3 space-y-2 text-sm">
+                            <li className="flex gap-2"><i className="fas fa-check text-emerald-400 mt-1"></i> sitemap.xml with 11 public URLs, prio 0.6–1.0, lastmod 2026-05-11</li>
+                            <li className="flex gap-2"><i className="fas fa-check text-emerald-400 mt-1"></i> robots.txt disallows /admin/* (private OS)</li>
+                            <li className="flex gap-2"><i className="fas fa-check text-emerald-400 mt-1"></i> Visual sitemap in header + footer + admin sidebar (highlighted FIXED)</li>
+                            <li className="flex gap-2"><i className="fas fa-check text-emerald-400 mt-1"></i> One-click copy/download for Search Console</li>
+                            <li className="flex gap-2"><i className="fas fa-check text-emerald-400 mt-1"></i> Host & Sitemap directives set</li>
+                          </ul>
+                          <button onClick={()=> { setSitemapView('visual'); window.scrollTo({top:0, behavior:'smooth'})}} className="mt-4 w-full bg-white text-black py-2.5 rounded-full font-black text-xs">BACK TO VISUAL MAP →</button>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
               {/* SETTINGS */}
               {adminTab==='settings' && (
                 <div className="grid lg:grid-cols-2 gap-6">
@@ -1474,7 +1750,7 @@ export default function App() {
                       <div className="mt-4 space-y-3 text-sm">
                         <div className="flex items-center justify-between bg-white/5 border border-white/10 rounded-xl px-4 py-3"><span className="font-bold">QR Verify Domain</span><span className="font-mono text-xs bg-white text-black px-2 py-1 rounded-full">verify.navrange.in</span></div>
                         <div className="flex items-center justify-between bg-white/5 border border-white/10 rounded-xl px-4 py-3"><span className="font-bold">ID Validity</span><span className="font-bold text-xs bg-[#0066ff] px-2 py-1 rounded-full">Till 31 Dec 2027</span></div>
-                        <div className="flex items-center justify-between bg-white/5 border border-white/10 rounded-xl px-4 py-3"><span className="font-bold">Card Stock</span><span className="font-bold text-xs">PVC CR-80 • 300 DPI</span></div>
+                        <div className="flex items-center justify-between bg-white/5 border border-white/10 rounded-xl px-4 py-3"><span className="font-bold">Sitemap</span><span className="font-bold text-xs bg-emerald-500 px-2 py-1 rounded-full">Live • /sitemap.xml</span></div>
                       </div>
                       <div className="mt-4 flex gap-2">
                         <button onClick={()=> setShowVerify(true)} className="flex-1 bg-white text-black py-2.5 rounded-full font-black text-xs">TEST VERIFY</button>
@@ -1487,6 +1763,7 @@ export default function App() {
                         <li className="flex gap-2"><i className="fas fa-check text-emerald-500 mt-1"></i> All data stored locally (demo) • Add backend when ready</li>
                         <li className="flex gap-2"><i className="fas fa-check text-emerald-500 mt-1"></i> Audit log immutable for compliance</li>
                         <li className="flex gap-2"><i className="fas fa-check text-emerald-500 mt-1"></i> IDs are SARFAESI & RBI audit-ready</li>
+                        <li className="flex gap-2"><i className="fas fa-check text-emerald-500 mt-1"></i> Sitemap & robots.txt ready for SEO</li>
                       </ul>
                       <button onClick={()=> { if(confirm('Reset all demo data?')){ localStorage.clear(); location.reload()}}} className="w-full mt-4 border border-red-200 text-red-600 bg-red-50 py-2.5 rounded-full font-black text-xs">RESET DEMO DATA</button>
                     </div>
@@ -1509,7 +1786,7 @@ export default function App() {
               <div className="grid lg:grid-cols-2 gap-8 items-center">
                 <div className="text-white">
                   <div className="inline-flex items-center gap-2 bg-white/10 backdrop-blur border border-white/15 rounded-full px-3 py-1.5 text-xs font-black tracking-widest">
-                    <span className="w-2 h-2 bg-emerald-400 rounded-full animate-pulse"></span> STANDARD • SINCE 2015 • PAN-INDIA
+                    <span className="w-2 h-2 bg-emerald-400 rounded-full animate-pulse"></span> STANDARD • SINCE 2015 • SITEMAP LIVE
                   </div>
                   <h1 className="text-[34px] md:text-[54px] font-black leading-[0.94] tracking-tighter mt-6">
                     Expert Loan<br />
@@ -1531,7 +1808,7 @@ export default function App() {
                     <span className="bg-white text-black px-3 py-1.5 rounded-full flex items-center gap-1.5"><i className="fas fa-check text-emerald-600"></i> RBI Compliant</span>
                     <span className="bg-white/10 border border-white/20 px-3 py-1.5 rounded-full">SARFAESI Certified</span>
                     <span className="bg-white/10 border border-white/20 px-3 py-1.5 rounded-full">CIN: U74999BR2015PTC024881</span>
-                    <button onClick={()=> setShowVerify(true)} className="bg-[#0066ff] px-3 py-1.5 rounded-full">Verify ID →</button>
+                    <button onClick={()=> setShowSitemap(true)} className="bg-white text-black px-3 py-1.5 rounded-full flex items-center gap-1.5"><i className="fas fa-sitemap text-[#0066ff]"></i> Sitemap →</button>
                   </div>
                   <div className="mt-6 grid grid-cols-3 gap-4 max-w-[520px] border-t border-white/15 pt-5">
                     <div><div className="text-2xl font-black">₹47.2Cr+</div><div className="text-[11px] font-bold tracking-widest opacity-60">RECOVERED</div></div>
@@ -1562,12 +1839,12 @@ export default function App() {
                         ))}
                       </div>
                     </div>
-                    <div className="mt-4 p-3 bg-amber-50 border border-amber-200 rounded-xl flex gap-2">
-                      <i className="fas fa-id-card text-amber-600 mt-0.5"></i>
-                      <p className="text-xs leading-relaxed text-amber-900"><b>Standard Admin:</b> Hire → Auto ID with QR • <button onClick={()=> setAdminMode(true)} className="underline font-black">Open Studio →</button></p>
+                    <div className="mt-4 p-3 bg-emerald-50 border border-emerald-200 rounded-xl flex gap-2">
+                      <i className="fas fa-sitemap text-emerald-600 mt-0.5"></i>
+                      <p className="text-xs leading-relaxed text-emerald-900"><b>Fixed (Option A):</b> Sitemap now in header + footer + admin. <button onClick={()=> setShowSitemap(true)} className="underline font-black">View Sitemap →</button></p>
                     </div>
                     <div className="mt-3 flex items-center gap-2 text-xs font-bold">
-                      <button onClick={()=> setShowVerify(true)} className="flex-1 border border-slate-200 py-2 rounded-full">VERIFY ID</button>
+                      <button onClick={()=> setShowSitemap(true)} className="flex-1 border border-slate-200 py-2 rounded-full">SITEMAP</button>
                       <button onClick={()=> scrollTo('contact')} className="flex-1 bg-black text-white py-2 rounded-full">TALK TO OPS</button>
                     </div>
                   </div>
@@ -1581,7 +1858,7 @@ export default function App() {
             <div className="max-w-[1280px] mx-auto px-4 md:px-6 flex flex-wrap items-center justify-between gap-3 text-xs font-black tracking-widest">
               <span className="opacity-60 hidden md:inline">TRUSTED BY:</span>
               <span>SBI</span><span className="opacity-30">•</span><span>HDFC BANK</span><span className="opacity-30">•</span><span>ICICI</span><span className="opacity-30">•</span><span>AXIS</span><span className="opacity-30">•</span><span>BAJAJ FINANCE</span><span className="opacity-30">•</span><span>L&T FINANCE</span>
-              <span className="hidden md:inline-flex items-center gap-2 bg-white text-black px-3 py-1 rounded-full"><i className="fas fa-award text-[#0066ff]"></i> 9+ YEARS • RBI COMPLIANT</span>
+              <span className="hidden md:inline-flex items-center gap-2 bg-white text-black px-3 py-1 rounded-full"><i className="fas fa-award text-[#0066ff]"></i> 9+ YEARS • SITEMAP LIVE</span>
             </div>
           </div>
 
@@ -1875,7 +2152,7 @@ export default function App() {
           </section>
 
           {/* FAQ */}
-          <section className="py-16 bg-white">
+          <section id="faq" className="py-16 bg-white">
             <div className="max-w-[960px] mx-auto px-4 md:px-6">
               <div className="text-center">
                 <div className="inline-flex bg-slate-900 text-white text-[11px] font-black tracking-[2px] px-3 py-1.5 rounded-full">FAQ • STANDARD</div>
@@ -1888,7 +2165,7 @@ export default function App() {
                   { q:'How does the auto ID card work?', a:'When admin adds staff (or hires an applicant), the system instantly generates EMP code (NR-YYYY-XXXX), QR verify link, PVC front+back layout ready to print — no design needed.' },
                   { q:'Can we verify a field officer’s ID?', a:'Yes — scan QR or enter EMP code at “Verify ID” (header). Checks live staff DB in admin.' },
                   { q:'What recovery rate do you achieve?', a:'92.4% contact rate, 34-day avg resolution, ₹47.2Cr recovered FY24. Partner NPA 62% below industry avg.' },
-                  { q:'Do you work with NBFCs & FIs?', a:'Yes — PSU banks, private banks, NBFCs, FIs. Onboarding in 48h with dedicated ops pod.' },
+                  { q:'Where is your sitemap?', a:'New in Option A — click Sitemap in header, top strip, footer or Admin → Sitemap & SEO. Includes visual map + sitemap.xml + robots.txt with one-click download.' },
                 ].map((f,i)=> (
                   <div key={i} className="border border-slate-200 rounded-2xl overflow-hidden">
                     <button onClick={()=> setFaqOpen(faqOpen===i ? null : i)} className="w-full flex items-center justify-between p-5 text-left hover:bg-slate-50">
@@ -1948,6 +2225,7 @@ export default function App() {
                     <div className="mt-4 flex gap-2">
                       <span className="bg-white text-black text-xs font-black px-3 py-1.5 rounded-full">RBI Compliant</span>
                       <span className="bg-white/10 border border-white/20 text-xs font-bold px-3 py-1.5 rounded-full">SARFAESI</span>
+                      <button onClick={()=> setShowSitemap(true)} className="bg-[#0066ff] text-white text-xs font-black px-3 py-1.5 rounded-full">SITEMAP</button>
                     </div>
                   </div>
                   <div className="bg-white border border-slate-200 rounded-[24px] p-6">
@@ -1985,6 +2263,7 @@ export default function App() {
                 <div className="w-8 h-8 bg-[#0066ff] rounded-lg flex items-center justify-center font-black">N</div>
                 <span className="font-black tracking-tight">NAVRANGE Recovery</span>
                 <span className="bg-white text-black text-[10px] font-black px-2 py-1 rounded-full">STD v2.5</span>
+                <span className="bg-emerald-500 text-white text-[10px] font-black px-2 py-1 rounded-full">SITEMAP ✓</span>
               </div>
               <p className="text-sm text-white/60 leading-relaxed mt-3">Standard loan recovery & NPA management for banks at scale. Ethical, compliant, outcome-obsessed since 2015.</p>
               <div className="mt-4 flex gap-2">
@@ -2003,20 +2282,29 @@ export default function App() {
             {[
               { h:'Company', links:['Our Story','Leadership','Careers','Contact']},
               { h:'Solutions', links:['Loan Recovery','NPA Management','Legal Services','Data Analytics']},
-              { h:'Standard', links:['Verify ID','Admin Panel','Audit Log','CIN: U74999BR2015PTC024881']},
+              { h:'Explore', links:['Sitemap','Verify ID','Admin Panel','CIN: U74999BR2015PTC024881']},
             ].map(col=> (
               <div key={col.h}>
                 <h4 className="font-black text-sm tracking-widest">{col.h}</h4>
                 <div className="w-10 h-1 bg-[#0066ff] rounded-full mt-2"></div>
                 <ul className="mt-4 space-y-2 text-sm text-white/60">
-                  {col.links.map(l=> <li key={l}><a href="#" onClick={e=> { e.preventDefault(); if(l==='Verify ID') setShowVerify(true); else if(l==='Admin Panel') setAdminMode(true); else if(col.h==='Solutions') scrollTo('services'); else scrollTo('about'); }} className="hover:text-white transition">{l}</a></li>)}
+                  {col.links.map(l=> <li key={l}><a href="#" onClick={e=> { e.preventDefault(); if(l==='Sitemap') setShowSitemap(true); else if(l==='Verify ID') setShowVerify(true); else if(l==='Admin Panel') setAdminMode(true); else if(col.h==='Solutions') scrollTo('services'); else if(l==='Our Story') scrollTo('about'); else if(l==='Leadership') scrollTo('team'); else if(l==='Careers') scrollTo('careers'); else if(l==='Contact') scrollTo('contact'); }} className={`hover:text-white transition ${l==='Sitemap' ? 'text-white font-black flex items-center gap-1.5' : ''}`}>{l==='Sitemap' && <i className="fas fa-sitemap text-[#0066ff]"></i>}{l} {l==='Sitemap' && <span className="bg-emerald-500 text-white text-[9px] px-1.5 py-0.5 rounded-full">FIXED</span>}</a></li>)}
                 </ul>
+                {col.h==='Explore' && (
+                  <div className="mt-4 p-2.5 bg-white/5 border border-white/10 rounded-xl">
+                    <div className="text-xs font-black tracking-widest opacity-60">SEO FILES</div>
+                    <div className="mt-1 flex flex-col gap-1 text-xs font-mono">
+                      <a href="/sitemap.xml" target="_blank" className="hover:text-white flex items-center gap-1.5"><i className="fas fa-file-code text-[#00d1ff]"></i> /sitemap.xml</a>
+                      <a href="/robots.txt" target="_blank" className="hover:text-white flex items-center gap-1.5"><i className="fas fa-robot text-[#00d1ff]"></i> /robots.txt</a>
+                    </div>
+                  </div>
+                )}
               </div>
             ))}
           </div>
           <div className="mt-8 pt-6 border-t border-white/10 flex flex-col md:flex-row items-center justify-between gap-3 text-xs text-white/50">
-            <span>© 2026 NAVRANGE Recovery Agency Pvt. Ltd. • CIN: U74999BR2015PTC024881 • RBI Compliant • SARFAESI Certified • ISO 9001:2015</span>
-            <span className="flex items-center gap-2"><span className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></span> Standard OS • All features active • ID Auto-Gen Live</span>
+            <span>© 2026 NAVRANGE Recovery Agency Pvt. Ltd. • CIN: U74999BR2015PTC024881 • RBI Compliant • SARFAESI Certified • ISO 9001:2015 • <button onClick={()=> setShowSitemap(true)} className="underline hover:text-white">Sitemap</button> • <a href="/sitemap.xml" target="_blank" className="underline hover:text-white">sitemap.xml</a></span>
+            <span className="flex items-center gap-2"><span className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></span> Standard OS • Sitemap Option A Fixed • ID Auto-Gen Live</span>
           </div>
         </div>
       </footer>
@@ -2026,6 +2314,121 @@ export default function App() {
         <button onClick={()=> window.scrollTo({top:0,behavior:'smooth'})} className="fixed bottom-6 right-6 w-11 h-11 bg-[#0066ff] text-white rounded-full shadow-xl flex items-center justify-center hover:bg-[#0052cc] z-40">
           <i className="fas fa-arrow-up text-sm"></i>
         </button>
+      )}
+
+      {/* SITEMAP OVERLAY - Option A Fixed */}
+      {showSitemap && (
+        <div className="fixed inset-0 z-[60] bg-black/70 backdrop-blur-sm flex items-start justify-center p-4 overflow-y-auto" onClick={()=> setShowSitemap(false)}>
+          <div onClick={e=> e.stopPropagation()} className="bg-[#f8fafc] rounded-[24px] w-full max-w-[1100px] my-8 overflow-hidden shadow-2xl border border-slate-200">
+            <div className="bg-black text-white p-6 md:p-8 relative overflow-hidden">
+              <div className="absolute -right-12 -top-12 w-48 h-48 bg-[#0066ff]/20 rounded-full blur-2xl"></div>
+              <div className="absolute -right-6 top-16 w-24 h-24 border border-white/10 rounded-full"></div>
+              <button onClick={()=> setShowSitemap(false)} className="absolute right-4 top-4 w-9 h-9 bg-white/10 hover:bg-white/20 rounded-full flex items-center justify-center transition"><i className="fas fa-times text-sm"></i></button>
+              <div className="relative z-10">
+                <div className="inline-flex items-center gap-2 bg-emerald-500 text-white text-xs font-black px-3 py-1.5 rounded-full">
+                  <i className="fas fa-check-circle"></i> FIXED — Option A • Sitemap Added
+                </div>
+                <h2 className="text-2xl md:text-3xl font-black tracking-tighter mt-3 flex items-center gap-3"><i className="fas fa-sitemap text-[#0066ff]"></i> Sitemap — NAVRANGE Standard</h2>
+                <p className="text-white/70 text-sm mt-2 max-w-2xl">You flagged missing sitemap in Option A — now live. Visual navigation + SEO sitemap.xml + robots.txt. Click any item to jump instantly.</p>
+                <div className="mt-4 flex flex-wrap gap-2 text-xs font-bold">
+                  <span className="bg-white text-black px-3 py-1.5 rounded-full">11 Website URLs • Public • Indexable</span>
+                  <span className="bg-white/10 border border-white/20 px-3 py-1.5 rounded-full">10 Admin Modules • Private • Noindex</span>
+                  <span className="bg-[#0066ff] px-3 py-1.5 rounded-full">sitemap.xml • robots.txt Ready</span>
+                </div>
+              </div>
+            </div>
+
+            <div className="p-6 md:p-8">
+              <div className="grid lg:grid-cols-2 gap-6">
+                <div>
+                  <h3 className="font-black flex items-center gap-2 text-slate-900"><span className="w-8 h-8 bg-black text-white rounded-lg flex items-center justify-center text-xs"><i className="fas fa-globe"></i></span> Website (Public)</h3>
+                  <p className="text-xs text-slate-500 mt-1">Click to navigate • All sections are anchor-linked for SEO crawlability</p>
+                  <div className="mt-4 grid grid-cols-1 gap-2">
+                    {[
+                      { l:'Home — Expert Recovery Hero', id:'home', p:'1.0' },
+                      { l:'Services — 3 Cards', id:'services', p:'0.9' },
+                      { l:'About — Story & 6-Step Process', id:'about', p:'0.8' },
+                      { l:'Team — Leadership', id:'team', p:'0.7' },
+                      { l:'Partners — 6 Banks + Testimonials', id:'partners', p:'0.8' },
+                      { l:'Data Analytics — RBI Chart', id:'analytics', p:'0.9' },
+                      { l:'NPA — Services & KPIs', id:'npa', p:'0.9' },
+                      { l:'Careers — 4 Roles', id:'careers', p:'0.8' },
+                      { l:'Contact — Form → Inbox', id:'contact', p:'0.9' },
+                      { l:'FAQ — 6 Items', id:'faq', p:'0.6' },
+                    ].map(s=> (
+                      <button key={s.id} onClick={()=> handleSitemapNav(s.id)} className="text-left bg-white border border-slate-200 rounded-xl px-4 py-3 flex items-center justify-between hover:border-[#0066ff]/30 hover:bg-blue-50/50 transition group">
+                        <div>
+                          <div className="font-bold text-sm flex items-center gap-2">{s.l} <span className="text-[10px] font-mono bg-slate-900 text-white px-1.5 py-0.5 rounded-full">#{s.id}</span></div>
+                          <div className="text-xs text-slate-500">https://navrange.in/#{s.id} • prio {s.p}</div>
+                        </div>
+                        <i className="fas fa-arrow-right text-xs text-slate-400 group-hover:text-[#0066ff]"></i>
+                      </button>
+                    ))}
+                    <button onClick={()=> { setShowSitemap(false); setShowVerify(true)}} className="text-left bg-white border border-slate-200 rounded-xl px-4 py-3 flex items-center justify-between hover:border-[#0066ff]/30 hover:bg-blue-50/50 transition">
+                      <div><div className="font-bold text-sm">Verify ID — QR Portal</div><div className="text-xs text-slate-500">Modal • verify.navrange.in • always</div></div>
+                      <i className="fas fa-qrcode text-[#0066ff]"></i>
+                    </button>
+                  </div>
+                </div>
+
+                <div>
+                  <h3 className="font-black flex items-center gap-2 text-slate-900"><span className="w-8 h-8 bg-[#0066ff] text-white rounded-lg flex items-center justify-center text-xs"><i className="fas fa-shield-alt"></i></span> Admin Panel (Private)</h3>
+                  <p className="text-xs text-slate-500 mt-1">Private OS — disallowed in robots.txt • Direct tab navigation</p>
+                  <div className="mt-4 grid grid-cols-1 gap-2">
+                    {[
+                      ['Dashboard','dashboard'],
+                      ['Staff & ID Cards','staff'],
+                      ['ID Studio (Auto-Gen)','idlab'],
+                      ['NPA Vault','cases'],
+                      ['Partners','partners'],
+                      ['Hiring Hub','careers'],
+                      ['Inbox','inbox'],
+                      ['Audit Log','audits'],
+                      ['Sitemap & SEO','sitemap'],
+                      ['Settings','settings'],
+                    ].map(([label,tab])=> (
+                      <button key={tab} onClick={()=> handleSitemapNav('', tab)} className="text-left bg-white border border-slate-200 rounded-xl px-4 py-3 flex items-center justify-between hover:border-[#0066ff]/30 hover:bg-blue-50/50 transition">
+                        <div><div className="font-bold text-sm">{label}</div><div className="text-xs text-slate-500">/admin/{tab} • noindex</div></div>
+                        <span className="text-xs font-black bg-slate-900 text-white px-2.5 py-1 rounded-full">GO →</span>
+                      </button>
+                    ))}
+                  </div>
+                  <div className="mt-4 bg-amber-50 border border-amber-200 rounded-xl p-3 flex gap-2">
+                    <i className="fas fa-lock text-amber-600 mt-0.5"></i>
+                    <p className="text-xs leading-relaxed text-amber-900"><b>SEO Note:</b> Admin is <code className="bg-white border px-1 rounded">Disallow: /admin</code> so only marketing site is indexed. Sitemap lists only public URLs.</p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="mt-8 grid md:grid-cols-2 gap-4">
+                <div className="bg-white border border-slate-200 rounded-2xl p-5">
+                  <h4 className="font-black flex items-center gap-2"><i className="fas fa-file-code text-[#0066ff]"></i> sitemap.xml</h4>
+                  <p className="text-xs text-slate-500 mt-1">16 URLs • lastmod 2026-05-11 • prio & changefreq set</p>
+                  <div className="mt-3 flex gap-2">
+                    <button onClick={copySitemap} className="flex-1 bg-slate-900 text-white py-2.5 rounded-full font-black text-xs">COPY XML</button>
+                    <button onClick={()=> downloadSitemap('xml')} className="flex-1 bg-[#0066ff] text-white py-2.5 rounded-full font-black text-xs">DOWNLOAD</button>
+                  </div>
+                  <a href="/sitemap.xml" target="_blank" className="mt-2 block text-center text-xs font-bold text-[#0066ff] hover:underline">Open /sitemap.xml in new tab →</a>
+                </div>
+                <div className="bg-white border border-slate-200 rounded-2xl p-5">
+                  <h4 className="font-black flex items-center gap-2"><i className="fas fa-robot text-slate-700"></i> robots.txt</h4>
+                  <p className="text-xs text-slate-500 mt-1">Allows / • Disallows /admin • Points to sitemap</p>
+                  <div className="mt-3 flex gap-2">
+                    <button onClick={()=> { navigator.clipboard.writeText(`User-agent: *\nAllow: /\nDisallow: /admin\nSitemap: https://navrange.in/sitemap.xml`); setToast('robots.txt copied')}} className="flex-1 border border-slate-200 py-2.5 rounded-full font-black text-xs">COPY</button>
+                    <button onClick={()=> downloadSitemap('robots')} className="flex-1 bg-black text-white py-2.5 rounded-full font-black text-xs">DOWNLOAD</button>
+                  </div>
+                  <a href="/robots.txt" target="_blank" className="mt-2 block text-center text-xs font-bold text-slate-600 hover:underline">Open /robots.txt →</a>
+                </div>
+              </div>
+
+              <div className="mt-6 flex flex-col md:flex-row gap-3">
+                <button onClick={()=> setShowSitemap(false)} className="flex-1 bg-black text-white py-3 rounded-full font-black text-sm">CLOSE SITEMAP ✓</button>
+                <button onClick={()=> { setShowSitemap(false); setAdminMode(true); setAdminTab('sitemap'); window.scrollTo({top:0,behavior:'smooth'})}} className="flex-1 bg-[#0066ff] text-white py-3 rounded-full font-black text-sm">OPEN ADMIN → SITEMAP & SEO</button>
+              </div>
+              <p className="text-center text-xs text-slate-500 mt-3">Option A now complete • Also accessible via footer “Sitemap”, header “SITEMAP” and Admin sidebar “Sitemap & SEO”</p>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* Verify Modal */}

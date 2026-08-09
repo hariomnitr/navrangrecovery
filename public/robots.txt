@@ -1,0 +1,16 @@
+User-agent: *
+Allow: /
+Allow: /#home
+Allow: /#services
+Allow: /#about
+Allow: /#team
+Allow: /#partners
+Allow: /#analytics
+Allow: /#npa
+Allow: /#careers
+Allow: /#contact
+Disallow: /admin
+Disallow: /admin/*
+
+Sitemap: https://navrange.in/sitemap.xml
+Host: https://navrange.in
